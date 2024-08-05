@@ -1,7 +1,7 @@
 
-# Character Stats Generator
+# RPG BATTLE ARENA
 
-Welcome to the Character Stats Generator project! This Python script generates random health stats for warriors using a dice roll mechanic.
+Welcome to the RPG BATTLE ARENA project! This Python script generates random health stats for warriors using a dice roll mechanic.
 
 ## Overview
 
