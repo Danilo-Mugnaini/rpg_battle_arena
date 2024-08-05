@@ -1,0 +1,204 @@
+import os
+import time
+import random
+
+# COLORS
+BLUE = '\033[94m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+WHITE = '\033[97m'
+END_COLOR = '\033[0m'
+
+# GAME SETTINGS
+MISS_CHANCE = 0.1
+CRIT_CHANCE = 0.05
+CRIT_MULTIPLIER = 1.5
+MAX_MANA_BOOST = 0.2
+AGILITY_CHANCE = 0.15
+MAX_HEAL_USES = 2
+
+# CLASS BASE STATS MODIFIERS
+CLASS_MODIFIERS = {
+    "HUMAN": {"Health": 25, "Strength": 15, "Mana": 10},
+    "ELF": {"Health": 15, "Strength": 15, "Mana": 20},
+    "WIZARD": {"Health": 10, "Strength": 10, "Mana": 30},
+    "ORC": {"Health": 30, "Strength": 30, "Mana": 2}
+}
+
+# SUPER EFFECTIVENESS CYCLE
+EFFECTIVENESS_CYCLE = {
+    "HUMAN": "ELF",
+    "ELF": "WIZARD",
+    "WIZARD": "ORC",
+    "ORC": "HUMAN"
+}
+
+# ROLL DICE FUNCTION
+def roll_dice_any():
+  return random.randint(1, 20)
+
+# GENERATE STATS
+def generate_stats():
+    return {
+        "Health": random.randint(3, 8)**2,
+        "Strength": random.randint(2, 11) + 2,
+        "Mana": random.randint(2, 11)
+    }
+
+# APPLY CLASS MODIFIERS
+def apply_class_modifiers(char_class, stats):
+    if char_class in CLASS_MODIFIERS:
+        for key, value in CLASS_MODIFIERS[char_class].items():
+            stats[key] += value
+
+
+# SUPER EFFECTIVENESS MECHANIC
+def effectiveness_multiplier(attacker_class, defender_class):
+    return 1.10 if EFFECTIVENESS_CYCLE.get(attacker_class) == defender_class else 1.0
+
+def calculate_damage(attacker_strength, attacker_mana, defender_mana,
+                     attacker_class, defender_class, dice_roll):
+    mana_boost = 1 + min((attacker_mana - defender_mana) / max(defender_mana, 1), MAX_MANA_BOOST) if attacker_mana > defender_mana else 1
+    effectiveness = effectiveness_multiplier(attacker_class, defender_class)
+    base_damage = attacker_strength * mana_boost * effectiveness
+    final_damage = (dice_roll + base_damage) / 2
+
+    if random.random() < MISS_CHANCE:
+        print(f"{YELLOW}\n😎  Miss! No damage dealt.{END_COLOR}")
+        return 0
+    if random.random() < CRIT_CHANCE:
+        print(f"{YELLOW}\n💥  Critical Hit! Damage increased by {int((CRIT_MULTIPLIER - 1) * 100)}%!{END_COLOR}")
+        final_damage *= CRIT_MULTIPLIER
+
+    print(f"{YELLOW}\n💭  Damage calculation: ({dice_roll} + {int(base_damage)}) / 2 = {int(final_damage)}{END_COLOR}")
+    print(f"\n{YELLOW}----------------------------------------{END_COLOR}")
+
+    return int(final_damage)
+
+# CHARACTER CREATION
+def create_char():
+    global char1_name, char1_class, char2_name, char2_class
+    global char1_stats, char2_stats, initial_health
+
+    def get_character_input(player_num):
+        name = input(f"{BLUE if player_num == 1 else RED}\nName your warrior {player_num}: {END_COLOR}").upper()
+        char_class = input(f"{BLUE if player_num == 1 else RED}Character Type (Human, Elf, Wizard, Orc): {END_COLOR}").upper()
+        stats = generate_stats()
+        apply_class_modifiers(char_class, stats)
+
+        return name, char_class, stats
+
+    print("✏️  Character Stats Generator ✏️")
+
+    char1_name, char1_class, char1_stats = get_character_input(1)
+    initial_health = {"char1": char1_stats["Health"]}
+
+    if char1_class not in CLASS_MODIFIERS:
+        print(f"{BLUE}Please choose a valid class!!!{END_COLOR}")
+        time.sleep(1)
+        os.system("clear")
+        return create_char()
+
+    print(f"{BLUE}\n⭐  Player 1: You're a {char1_class} named {char1_name}{END_COLOR}")
+
+    char2_name, char2_class, char2_stats = get_character_input(2)
+    initial_health["char2"] = char2_stats["Health"]
+
+    if char2_class not in CLASS_MODIFIERS or char2_name == char1_name:
+        print(f"{RED}Invalid input or duplicate name!{END_COLOR}")
+        time.sleep(1)
+        os.system("clear")
+        return create_char()
+
+    print(f"{RED}\n⭐  Player 2: You're a {char2_class} named {char2_name}{END_COLOR}")
+
+    if input("\nDo you want to proceed? (PRESS ENTER) ") == "":
+        os.system('clear')
+        start_battle()
+    else:
+        os.system('clear')
+        time.sleep(1)
+        create_char()
+
+# VALIDATE MOVE INPUT
+def get_valid_move(player_name):
+    while True:
+        print(f"\n{YELLOW}----------------------------------------{END_COLOR}")
+        move = input(f"{YELLOW}Move: {player_name}, do you want to Attack (a) or Heal (h)? {END_COLOR}").lower().strip()
+        if move == "a" or (move == "h" and heal_uses > 0):
+            return move
+        elif move == "h":
+            print(f"{YELLOW}\nYou have no heal uses left!{END_COLOR}")
+        
+        print(f"{YELLOW}\nInvalid input! Please choose 'a' for Attack or 'h' for Heal.{END_COLOR}")
+
+# AGILITY MECHANIC
+def agility_mechanic(losing_roll, winning_roll, char1_name, char2_name):
+    if random.random() < AGILITY_CHANCE:
+        print(f"{YELLOW}\n✨ {char1_name if losing_roll == winning_roll else char2_name} gets a chance to act first due to agility!{END_COLOR}")
+        return True
+    return False
+
+#  START BATTLE FUNCTION
+def start_battle():
+    round_number = 1
+    while True:
+        print(f"\n{WHITE}-- Character Stats --{END_COLOR}")
+        print(f"{BLUE}\n⭐  {char1_name} ({char1_class})  \n❤️   Health: {char1_stats['Health']} \n💪  Strength: {char1_stats['Strength']} \n🔮  Mana: {char1_stats['Mana']}{END_COLOR}")
+        print(f"{RED}\n⭐  {char2_name} ({char2_class})  \n❤️   Health: {char2_stats['Health']} \n💪  Strength: {char2_stats['Strength']} \n🔮  Mana: {char2_stats['Mana']}{END_COLOR}")
+        print(f"\n{WHITE}--                 --{END_COLOR}")
+
+        print(f"\n{WHITE}{'⚔️ ' * round_number} Round {round_number} begins{' ⚔️' * round_number}{END_COLOR}")
+        input(f"{BLUE}\n>Player 1 press ENTER to roll the dice🎲{END_COLOR}")
+        char1_roll = roll_dice_any()
+        print(f"{BLUE}>{char1_name} rolled a {char1_roll} {'🎲' * char1_roll}{END_COLOR}")
+
+        input(f"{RED}\n>Player 2 press ENTER to roll the dice🎲{END_COLOR}")
+        char2_roll = roll_dice_any()
+        print(f"{RED}>{char2_name} rolled a {char2_roll} {'🎲' * char2_roll}{END_COLOR}")
+
+
+        rolls = [(char1_name, char1_class, char1_stats, char1_roll, char2_name, char2_class, char2_stats, char2_roll),
+                 (char2_name, char2_class, char2_stats, char2_roll, char1_name, char1_class, char1_stats, char1_roll)]
+
+        for attacker_name, attacker_class, attacker_stats, attacker_roll, defender_name, defender_class, defender_stats, defender_roll in rolls:
+            if attacker_roll == max(char1_roll, char2_roll):
+                if agility_mechanic(defender_roll, attacker_roll, attacker_name, defender_name):
+                    move = get_valid_move(attacker_name)
+                    if move == "a":
+                        damage = calculate_damage(attacker_stats["Strength"], attacker_stats["Mana"],
+                                                  defender_stats["Mana"], attacker_class, defender_class, attacker_roll)
+                        defender_stats["Health"] -= damage
+                        print(f"{attacker_name} deals {damage} damage to {defender_name}!")
+                        #if defender_stats["Health"] <= 0:
+                            #print(f"{attacker_name} wins the round!")
+                            #return
+                    elif move == "h":
+                        heal = random.randint(5, 15)
+                        attacker_stats["Health"] += heal
+                        print(f"{attacker_name} heals for {heal}!")
+                else:
+                    move = get_valid_move(attacker_name)
+                    if move == "a":
+                        damage = calculate_damage(attacker_stats["Strength"], attacker_stats["Mana"],
+                                                  defender_stats["Mana"], attacker_class, defender_class, attacker_roll)
+                        defender_stats["Health"] -= damage
+                        print(f"{attacker_name} deals {damage} damage to {defender_name}!")
+                        if defender_stats["Health"] <= 0:
+                            print(f"{attacker_name} wins the round!")
+                            return
+                    elif move == "h":
+                        heal = random.randint(5, 15)
+                        attacker_stats["Health"] += heal
+                        print(f"{attacker_name} heals for {heal}!")
+
+        if char1_stats["Health"] <= 0:
+            print(f"{RED}\n🌟 {char2_name} wins the battle!{END_COLOR}")
+            return
+        elif char2_stats["Health"] <= 0:
+            print(f"{BLUE}\n🌟 {char1_name} wins the battle!{END_COLOR}")
+
+        round_number += 1
+
+# RUN GAME
+create_char()
